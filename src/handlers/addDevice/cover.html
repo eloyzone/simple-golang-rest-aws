@@ -1,0 +1,287 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">eloy-aws-api-service/src/handlers/addDevice/addDevice.go (96.2%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package main
+
+import (
+    "eloy-aws-api-service/src/handlers/types"
+    
+    "os"
+    "encoding/json"
+    "errors"
+    
+    "github.com/aws/aws-sdk-go/aws"
+    "github.com/aws/aws-lambda-go/lambda"
+    "github.com/aws/aws-lambda-go/events"
+    "github.com/aws/aws-sdk-go/aws/session"
+    "github.com/aws/aws-sdk-go/service/dynamodb"
+    "github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
+    "github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
+)
+
+
+type SuccessResponse struct {
+    Status   string          `json:"status"`
+    Device   types.Device    `json:"data"`
+}
+
+
+type dynamoDBAPI struct {
+    DynamoDB dynamodbiface.DynamoDBAPI
+}
+
+
+
+// main AWS lambda function starting point.
+// It gets some inputs from client as json, parse it and tries to insert it into dynamodb.
+// valid input json is like types.Device struct
+func AddDevice(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) <span class="cov8" title="1">{
+
+    region := os.Getenv("AWS_REGION")
+    var setter = new(dynamoDBAPI) // crate a setter that  can be used for inserting
+    sess, err := session.NewSession(&amp;aws.Config{Region: &amp;region},)
+
+    svc := dynamodb.New(sess)
+    setter.DynamoDB = dynamodbiface.DynamoDBAPI(svc)
+
+
+    
+    // validate inputs of client's request (APIGatewayProxyRequest).
+    newDevice, err := validateInputs(request)
+
+    // if inputs are not suitable, return HTTP 400 error
+    if err != nil </span><span class="cov8" title="1">{
+        return events.APIGatewayProxyResponse{
+            Body:       "" + err.Error(),
+            StatusCode: 400,
+        }, nil
+    }</span>
+
+    <span class="cov8" title="1">_, err = setter.insertItemToDatabase(newDevice)
+
+    // If an internal error occured in the database  , return HTTP error 500
+    if err != nil </span><span class="cov8" title="1">{
+        return events.APIGatewayProxyResponse{
+
+            Body:       createErrorResponseJson(500, "Internal Server's Error occured"),
+            StatusCode: 500,
+        }, nil
+    }</span>
+
+    // looks fine, item inserted and result will be returned.
+    <span class="cov0" title="0">return createSuccessResponseJson(newDevice)</span>
+}
+
+func validateInputs(request events.APIGatewayProxyRequest) (types.Device, error) <span class="cov8" title="1">{
+    
+    var errorFlag bool = false
+
+    // Initialize device json object(struct)
+    device := types.Device{
+        ID:            "",
+        DeviceModel:   "",
+        Name:          "",
+        Note:          "",
+        Serial:        "",
+    }
+
+    errorMessage := ""
+
+    if len(request.Body) == 0 </span><span class="cov8" title="1">{
+        errorMessage = "No inputs provided, please provide inputs in json format."
+        return types.Device{}, errors.New(createErrorResponseJson(400, errorMessage))
+    }</span>
+
+    // Parse request body, gets body of request then parse it to json and finally assigns it to device 
+    <span class="cov8" title="1">var err = json.Unmarshal([]byte(request.Body), &amp;device)
+
+    if err != nil </span><span class="cov8" title="1">{
+        errorMessage = "Wrong format: Inputs must be a valid json."
+        return types.Device{}, errors.New(createErrorResponseJson(400, errorMessage))
+    }</span>
+
+    <span class="cov8" title="1">errorMessage = "Following fields are not provided: "
+
+
+    if len(device.ID) == 0 </span><span class="cov8" title="1">{
+        errorMessage += "id, "
+        errorFlag = true
+    }</span>
+
+    <span class="cov8" title="1">if len(device.DeviceModel) == 0 </span><span class="cov8" title="1">{
+        errorMessage += "deviceModel, "
+        errorFlag = true
+    }</span>
+
+    <span class="cov8" title="1">if len(device.Name) == 0 </span><span class="cov8" title="1">{
+        errorMessage += "name, "
+        errorFlag = true
+    }</span>
+    <span class="cov8" title="1">if len(device.Note) == 0 </span><span class="cov8" title="1">{
+        errorMessage += "note, "
+        errorFlag = true
+    }</span>
+
+    <span class="cov8" title="1">if len(device.Serial) == 0 </span><span class="cov8" title="1">{
+        errorMessage += "serial, "
+        errorFlag = true
+    }</span>
+
+    // if some fields are missin, report it as an error
+    <span class="cov8" title="1">if errorFlag == true </span><span class="cov8" title="1">{
+            return types.Device{}, errors.New(createErrorResponseJson(400, errorMessage))
+    }</span>
+    
+        
+    // everything looks fine, return created device
+    <span class="cov8" title="1">return device, nil</span>
+    
+}
+
+func createErrorResponseJson(errorCode int, errorMessage string) (jsonString string) <span class="cov8" title="1">{
+
+    errorResponse := types.ErrorResponse { ErrorMessage: types.ErrorMessage { Code: errorCode, Message: errorMessage,},}
+    errorResponseJson, _ := json.MarshalIndent(&amp;errorResponse, "", "\t")
+    return string(errorResponseJson)
+}</span>
+
+func createSuccessResponseJson(newDevice types.Device) (events.APIGatewayProxyResponse, error)<span class="cov8" title="1">{
+
+    successResponse := SuccessResponse {
+        "requested item inserted",
+        newDevice,
+    }
+    successResponseJson, _ := json.MarshalIndent(&amp;successResponse, "", "\t")
+
+    return events.APIGatewayProxyResponse { 
+            Body: string(successResponseJson),
+            StatusCode: 201,
+    }, nil 
+}</span>
+
+// function that just insert requested item to dynamodb's table.
+func (ig *dynamoDBAPI) insertItemToDatabase(newDevice types.Device)(*dynamodb.PutItemOutput, error)<span class="cov8" title="1">{
+
+    // Get table name from OS's environment
+    tableName := aws.String(os.Getenv("DEVICES_TABLE_NAME"))
+
+    // marshal newDevice struct(object) as a dynamodb item 
+    item, _ := dynamodbattribute.MarshalMap(newDevice)
+
+    // preparing an input for dynamodb
+    input := &amp;dynamodb.PutItemInput{
+        Item: item,
+        TableName: tableName,
+    }
+
+    // put created input to dynamodb
+    output, err := ig.DynamoDB.PutItem(input)
+
+
+    return output, err
+}</span>
+
+func main() <span class="cov0" title="0">{
+
+    // aws lambda function calls it
+    lambda.Start(AddDevice)
+}</span>
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>

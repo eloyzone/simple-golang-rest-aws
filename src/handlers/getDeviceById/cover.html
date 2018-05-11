@@ -54,7 +54,7 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">eloy-aws-api-service/src/handlers/getDeviceById/getDeviceById.go (97.3%)</option>
+				<option value="file0">eloy-aws-api-service/src/handlers/getDeviceById/getDeviceById.go (91.5%)</option>
 				
 				</select>
 			</div>
@@ -72,7 +72,7 @@
 
 import (
     "eloy-aws-api-service/src/handlers/types"
-
+    "fmt"
     "os"
     "encoding/json"
 
@@ -99,14 +99,38 @@ type dynamoDBAPI struct {
     DynamoDB dynamodbiface.DynamoDBAPI
 }
 
+var databseStruct *types.DatabseStruct
+var dynamodbapi *dynamoDBAPI
+
+func init()<span class="cov8" title="1">{
+    databseStruct = new(types.DatabseStruct)
+    region := os.Getenv("AWS_REGION")
+    dynamodbapi = new(dynamoDBAPI) // crate a setter that  can be used for inserting
+    sess, err := session.NewSession(&amp;aws.Config{Region: &amp;region},)
+    databseStruct.SessionError = err
+    svc := dynamodb.New(sess)
+    dynamodbapi.DynamoDB = dynamodbiface.DynamoDBAPI(svc)
+
+    if err != nil </span><span class="cov0" title="0">{
+        fmt.Println("There is an error while creating database session: " + err.Error())
+    }</span>
+
+    // Get table name from OS's environment
+    <span class="cov8" title="1">fetchedTableName :=os.Getenv("DEVICES_TABLE_NAME")
+    if len(fetchedTableName)==0 </span><span class="cov8" title="1">{
+        databseStruct.TableName =  nil;
+        fmt.Println("It is not possible to fetch device tabel name")
+    }</span><span class="cov0" title="0">else{
+        databseStruct.TableName = aws.String(fetchedTableName)   
+    }</span>
+}
+
 
 // get a device from DynamoDB database with provided id
 func (ig *dynamoDBAPI) getFromDatabase(id string) ( *dynamodb.GetItemOutput, error) <span class="cov8" title="1">{
-    // Get table name from OS's environment
-    tableName := aws.String(os.Getenv("DEVICES_TABLE_NAME"))
 
     var input = &amp;dynamodb.GetItemInput{
-        TableName: tableName,
+        TableName: databseStruct.TableName,
         
         Key: map[string]*dynamodb.AttributeValue{
             "id": {
@@ -125,17 +149,17 @@ func (ig *dynamoDBAPI) getFromDatabase(id string) ( *dynamodb.GetItemOutput, err
 // It gets an id from client, parse it and tries to get corresponding device fromdynamodb.
 func GetDeviceById(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) <span class="cov8" title="1">{
         
-    region := os.Getenv("AWS_REGION")
-    var getter = new(dynamoDBAPI)
-    sess, err := session.NewSession(&amp;aws.Config{Region: &amp;region},)
 
-    svc := dynamodb.New(sess)
-    getter.DynamoDB = dynamodbiface.DynamoDBAPI(svc)
-
-
+    // there is some internal server error 
+    if databseStruct.SessionError != nil || databseStruct.TableName == nil </span><span class="cov0" title="0">{
+        return events.APIGatewayProxyResponse{
+            Body:       createErrorResponseJson(ERROR_INTERNAL_SERVERS_DATABAE),
+            StatusCode: 404,
+        }, nil
+    }</span>
 
     // get requested id from APIGatewayProxyRequest 
-    id := request.PathParameters["id"]
+    <span class="cov8" title="1">id := request.PathParameters["id"]
 
     // If no id provided, return HTTP error 404
     if id == "" </span><span class="cov8" title="1">{
@@ -145,7 +169,7 @@ func GetDeviceById(request events.APIGatewayProxyRequest) (events.APIGatewayProx
         }, nil
     }</span>
 
-    <span class="cov8" title="1">result, err := getter.getFromDatabase(id)
+    <span class="cov8" title="1">result, err := dynamodbapi.getFromDatabase(id)
 
     validationResult := validateDatabaseResult(result, err)
 

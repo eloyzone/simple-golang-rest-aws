@@ -1,6 +1,7 @@
 package main
 
 import (
+    "eloy-aws-api-service/src/handlers/types"
     "testing"
     "errors"
     
@@ -120,6 +121,8 @@ func TestGetDeviceById(t *testing.T) {
     
     for _, test := range testCases {
 
+        databseStruct = new(types.DatabseStruct)
+        databseStruct.TableName = aws.String("test_table_name");
         // calls getDeviceById.go's AddDevice function.
         response,_ := GetDeviceById(test.InputId)
 

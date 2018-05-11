@@ -54,7 +54,7 @@
 			<div id="nav">
 				<select id="files">
 				
-				<option value="file0">eloy-aws-api-service/src/handlers/addDevice/addDevice.go (96.2%)</option>
+				<option value="file0">eloy-aws-api-service/src/handlers/addDevice/addDevice.go (94.6%)</option>
 				
 				</select>
 			</div>
@@ -97,6 +97,18 @@ type dynamoDBAPI struct {
     DynamoDB dynamodbiface.DynamoDBAPI
 }
 
+var setter *dynamoDBAPI
+var sessionError error
+
+func init()<span class="cov8" title="1">{
+    region := os.Getenv("AWS_REGION")
+    setter = new(dynamoDBAPI) // crate a setter that  can be used for inserting
+    sess, err := session.NewSession(&amp;aws.Config{Region: &amp;region},)
+    sessionError = err
+    svc := dynamodb.New(sess)
+    setter.DynamoDB = dynamodbiface.DynamoDBAPI(svc)
+}</span>
+
 
 
 // main AWS lambda function starting point.
@@ -104,17 +116,18 @@ type dynamoDBAPI struct {
 // valid input json is like types.Device struct
 func AddDevice(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) <span class="cov8" title="1">{
 
-    region := os.Getenv("AWS_REGION")
-    var setter = new(dynamoDBAPI) // crate a setter that  can be used for inserting
-    sess, err := session.NewSession(&amp;aws.Config{Region: &amp;region},)
 
-    svc := dynamodb.New(sess)
-    setter.DynamoDB = dynamodbiface.DynamoDBAPI(svc)
+    if sessionError != nil </span><span class="cov0" title="0">{
+        return events.APIGatewayProxyResponse{
 
+            Body:       createErrorResponseJson(500, "Internal Server's Error occured"),
+            StatusCode: 500,
+        }, nil
+    }</span>
 
     
     // validate inputs of client's request (APIGatewayProxyRequest).
-    newDevice, err := validateInputs(request)
+    <span class="cov8" title="1">newDevice, err := validateInputs(request)
 
     // if inputs are not suitable, return HTTP 400 error
     if err != nil </span><span class="cov8" title="1">{

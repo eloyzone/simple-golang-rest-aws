@@ -4,6 +4,7 @@ import (
     "eloy-aws-api-service/src/handlers/types"
 
     "testing"
+    "github.com/aws/aws-sdk-go/aws"
 
     "github.com/aws/aws-lambda-go/events"
     "github.com/aws/aws-sdk-go/service/dynamodb"
@@ -84,6 +85,8 @@ func TestAddDevice(t *testing.T) {
     for _, test := range testCases {
 
         // calls addDevice.go's AddDevice function.
+        databseStruct = new(types.DatabseStruct)
+        databseStruct.TableName = aws.String("test_table_name");
         response, _ := AddDevice(test.Request)
 
         if response.StatusCode != test.ExpectedStatusCode ||  response.Body != test.ExpectedBody{

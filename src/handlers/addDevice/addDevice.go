@@ -2,7 +2,7 @@ package main
 
 import (
     "eloy-aws-api-service/src/handlers/types"
-    
+    "fmt"
     "os"
     "encoding/json"
     "errors"
@@ -22,9 +22,36 @@ type SuccessResponse struct {
     Device   types.Device    `json:"data"`
 }
 
-
 type dynamoDBAPI struct {
     DynamoDB dynamodbiface.DynamoDBAPI
+}
+
+
+var databseStruct *types.DatabseStruct
+var dynamodbapi *dynamoDBAPI
+
+func init(){
+    databseStruct = new(types.DatabseStruct)
+    region := os.Getenv("AWS_REGION")
+    dynamodbapi = new(dynamoDBAPI) // crate a setter that  can be used for inserting
+    sess, err := session.NewSession(&aws.Config{Region: &region},)
+    databseStruct.SessionError = err
+    svc := dynamodb.New(sess)
+    dynamodbapi.DynamoDB = dynamodbiface.DynamoDBAPI(svc)
+
+    if err != nil {
+        fmt.Println("There is an error while creating database session: " + err.Error())
+    }
+
+    // Get table name from OS's environment
+    fetchedTableName :=os.Getenv("DEVICES_TABLE_NAME")
+    if len(fetchedTableName)==0 {
+        databseStruct.TableName =  nil;
+        fmt.Println("It is not possible to fetch device tabel name")
+        // databseContainer.tableName = aws.String(fetchedTableName)
+    }else{
+        databseStruct.TableName = aws.String(fetchedTableName)   
+    }
 }
 
 
@@ -34,14 +61,13 @@ type dynamoDBAPI struct {
 // valid input json is like types.Device struct
 func AddDevice(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
 
-    region := os.Getenv("AWS_REGION")
-    var setter = new(dynamoDBAPI) // crate a setter that  can be used for inserting
-    sess, err := session.NewSession(&aws.Config{Region: &region},)
-
-    svc := dynamodb.New(sess)
-    setter.DynamoDB = dynamodbiface.DynamoDBAPI(svc)
-
-
+    // there is some internal server error 
+    if databseStruct.SessionError != nil || databseStruct.TableName == nil {
+        return events.APIGatewayProxyResponse{
+            Body:       createErrorResponseJson(500, "Internal Server's Error occured"),
+            StatusCode: 500,
+        }, nil
+    }
     
     // validate inputs of client's request (APIGatewayProxyRequest).
     newDevice, err := validateInputs(request)
@@ -54,7 +80,7 @@ func AddDevice(request events.APIGatewayProxyRequest) (events.APIGatewayProxyRes
         }, nil
     }
 
-    _, err = setter.insertItemToDatabase(newDevice)
+    _, err = dynamodbapi.insertItemToDatabase(newDevice)
 
     // If an internal error occured in the database  , return HTTP error 500
     if err != nil {
@@ -159,16 +185,13 @@ func createSuccessResponseJson(newDevice types.Device) (events.APIGatewayProxyRe
 // function that just insert requested item to dynamodb's table.
 func (ig *dynamoDBAPI) insertItemToDatabase(newDevice types.Device)(*dynamodb.PutItemOutput, error){
 
-    // Get table name from OS's environment
-    tableName := aws.String(os.Getenv("DEVICES_TABLE_NAME"))
-
     // marshal newDevice struct(object) as a dynamodb item 
     item, _ := dynamodbattribute.MarshalMap(newDevice)
 
     // preparing an input for dynamodb
     input := &dynamodb.PutItemInput{
         Item: item,
-        TableName: tableName,
+        TableName: databseStruct.TableName,
     }
 
     // put created input to dynamodb

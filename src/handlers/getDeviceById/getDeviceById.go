@@ -2,7 +2,7 @@ package main
 
 import (
     "eloy-aws-api-service/src/handlers/types"
-
+    "fmt"
     "os"
     "encoding/json"
 
@@ -29,14 +29,38 @@ type dynamoDBAPI struct {
     DynamoDB dynamodbiface.DynamoDBAPI
 }
 
+var databseStruct *types.DatabseStruct
+var dynamodbapi *dynamoDBAPI
+
+func init(){
+    databseStruct = new(types.DatabseStruct)
+    region := os.Getenv("AWS_REGION")
+    dynamodbapi = new(dynamoDBAPI) // crate a setter that  can be used for inserting
+    sess, err := session.NewSession(&aws.Config{Region: &region},)
+    databseStruct.SessionError = err
+    svc := dynamodb.New(sess)
+    dynamodbapi.DynamoDB = dynamodbiface.DynamoDBAPI(svc)
+
+    if err != nil {
+        fmt.Println("There is an error while creating database session: " + err.Error())
+    }
+
+    // Get table name from OS's environment
+    fetchedTableName :=os.Getenv("DEVICES_TABLE_NAME")
+    if len(fetchedTableName)==0 {
+        databseStruct.TableName =  nil;
+        fmt.Println("It is not possible to fetch device tabel name")
+    }else{
+        databseStruct.TableName = aws.String(fetchedTableName)   
+    }
+}
+
 
 // get a device from DynamoDB database with provided id
 func (ig *dynamoDBAPI) getFromDatabase(id string) ( *dynamodb.GetItemOutput, error) {
-    // Get table name from OS's environment
-    tableName := aws.String(os.Getenv("DEVICES_TABLE_NAME"))
 
     var input = &dynamodb.GetItemInput{
-        TableName: tableName,
+        TableName: databseStruct.TableName,
         
         Key: map[string]*dynamodb.AttributeValue{
             "id": {
@@ -55,14 +79,14 @@ func (ig *dynamoDBAPI) getFromDatabase(id string) ( *dynamodb.GetItemOutput, err
 // It gets an id from client, parse it and tries to get corresponding device fromdynamodb.
 func GetDeviceById(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
         
-    region := os.Getenv("AWS_REGION")
-    var getter = new(dynamoDBAPI)
-    sess, err := session.NewSession(&aws.Config{Region: &region},)
 
-    svc := dynamodb.New(sess)
-    getter.DynamoDB = dynamodbiface.DynamoDBAPI(svc)
-
-
+    // there is some internal server error 
+    if databseStruct.SessionError != nil || databseStruct.TableName == nil {
+        return events.APIGatewayProxyResponse{
+            Body:       createErrorResponseJson(ERROR_INTERNAL_SERVERS_DATABAE),
+            StatusCode: 404,
+        }, nil
+    }
 
     // get requested id from APIGatewayProxyRequest 
     id := request.PathParameters["id"]
@@ -75,7 +99,7 @@ func GetDeviceById(request events.APIGatewayProxyRequest) (events.APIGatewayProx
         }, nil
     }
 
-    result, err := getter.getFromDatabase(id)
+    result, err := dynamodbapi.getFromDatabase(id)
 
     validationResult := validateDatabaseResult(result, err)
 

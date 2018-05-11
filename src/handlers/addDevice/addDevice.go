@@ -48,7 +48,6 @@ func init(){
     if len(fetchedTableName)==0 {
         databseStruct.TableName =  nil;
         fmt.Println("It is not possible to fetch device tabel name")
-        // databseContainer.tableName = aws.String(fetchedTableName)
     }else{
         databseStruct.TableName = aws.String(fetchedTableName)   
     }

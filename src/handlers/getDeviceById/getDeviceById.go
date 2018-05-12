@@ -1,7 +1,7 @@
 package main
 
 import (
-	"eloy-aws-api-service/src/handlers/types"
+	"types"
 	"fmt"
 	"os"
 	"encoding/json"

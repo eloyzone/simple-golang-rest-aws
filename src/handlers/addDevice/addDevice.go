@@ -1,7 +1,7 @@
 package main
 
 import (
-	"eloy-aws-api-service/src/handlers/types"
+	"types"
 	"fmt"
 	"os"
 	"encoding/json"
@@ -115,7 +115,7 @@ func validateInputs(request events.APIGatewayProxyRequest) (types.Device, error)
 	var err = json.Unmarshal([]byte(request.Body), &device)
 
 	if err != nil {
-		errorMessage = "Wrong format: Inputs must be a valid json."\
+		errorMessage = "Wrong format: Inputs must be a valid json."
 		return types.Device{}, errors.New(createErrorResponseJson(400, errorMessage))
 	}
 	
